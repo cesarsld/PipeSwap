@@ -119,9 +119,8 @@ contract Lego is ICallee, DydxFlashloanBase {
 		else if (_lego.service == Service.curve) {
 			(int128 a, int128 b) = _decodeCurve(_lego.data);
 			IERC20(ICurvePool(_lego.target).underlying_coins(a)).approve(_lego.target, _in);
-			out = ICurvePool(_lego.target).get_dy_underlying(a, b, _in);
 			ICurvePool(_lego.target).exchange_underlying(a, b, _in, out);
-			//out = IERC20(ICurvePool(_lego.target).underlying_coins(b)).balanceOf(address(this));
+			out = IERC20(ICurvePool(_lego.target).underlying_coins(b)).balanceOf(address(this));
 		}
 	}
 
@@ -148,7 +147,7 @@ contract Lego is ICallee, DydxFlashloanBase {
 		}
 		else if (_lego.service == Service.curve) {
 			(int128 a, int128 b) = _decodeCurve(_lego.data);
-			out = ICurvePool(_lego.target).get_dy_underlying(a, b, _in);
+			out = ICurvePool(_lego.target).get_dy_underlying(a, b, _in).mul(99999).div(100000);
 		}
 		else if (_lego.service == Service.dydx_loan)
 			out = _in;

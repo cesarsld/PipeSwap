@@ -27,6 +27,14 @@ def weth(interface, minter):
     return interface.Weth("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", owner=minter)
 
 @pytest.fixture()
+def dai(interface, minter):
+    return interface.Weth("0x6b175474e89094c44da98b954eedeac495271d0f", owner=minter)
+
+@pytest.fixture()
+def tusd(interface, minter):
+    return interface.Weth("0x0000000000085d4780B73119b644AE5ecd22b376", owner=minter)
+
+@pytest.fixture()
 def usdc(interface, minter):
     return interface.IERC20("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", owner=minter)
 
