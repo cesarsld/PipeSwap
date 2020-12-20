@@ -8,6 +8,7 @@ import "../interfaces/balancer.sol";
 import "../interfaces/weth.sol";
 import "./dydx/ICallee.sol";
 import "./dydx/DydxFlashloanBase.sol";
+import "./HootCoin.sol";
 
 contract Lego is ICallee, DydxFlashloanBase {
 	enum Service {
@@ -27,12 +28,37 @@ contract Lego is ICallee, DydxFlashloanBase {
 
 	Weth constant weth = Weth(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-	// flash loan should happen as first block and only once, IO token should be WETH
+	// flash loan should happen as first block and only once, IO token should be WETH, dont query more than once a specific pool
 	// todo: exit in my weth fork
-	function execBatch(LegoBlock[] memory _legos, uint _amount, uint _maxGasFee, address _to) public {
-		require(_simulateBatch(_legos, _amount, _maxGasFee), "No arb");
+	function execBatch(LegoBlock[] memory _legos, uint _amount, uint _maxGasFee, address _to, Owl _fork) public {
+		//require(_simulateBatch(_legos, _amount, _maxGasFee), "No arb");
+		if (address(_fork) == address(0))
+			weth.transferFrom(_to, address(this), _amount);
+		else
+			_fork.hootOutFrom(_amount, _to);
 		_executeBatch(_legos, _amount, 0);
-		weth.transfer(_to, weth.balanceOf(address(this)));
+		if (address(_fork) == address(0))
+			weth.transfer(_to, weth.balanceOf(address(this)));
+		else {
+			uint loot = weth.balanceOf(address(this));
+			weth.approve(address(_fork), loot);
+			_fork.hootInTo(weth.balanceOf(address(this)), _to);
+		}
+	}
+
+	function testSimulateBatch(LegoBlock[] memory _legos, uint _amount) public view returns(int) {
+		uint io = _amount;
+		uint sub;
+		for (uint i = 0; i < _legos.length; i++) {
+			if (_legos[i].service == Service.dydx_loan) {
+				(, uint amount) = _decodeLoan(_legos[i].data);
+				io = amount;
+				sub = amount;
+			}
+			else
+				io = _simulateBlockOutcome(_legos[i], io);
+		}
+		return int(io) - int(sub);
 	}
 
 	// checks if the pipe execution is profitable
@@ -59,7 +85,7 @@ contract Lego is ICallee, DydxFlashloanBase {
 				(address token, uint loan) = _decodeLoan(_legos[i].data);
 				_initiateFlashLoan(_legos[i].target, token, loan, _legos, i + 1);
 				break;
-			}git remote add origin https://github.com/cesarsld/PipeSwap.git
+			}
 			else
 				io = _executeBlock(_legos[i], io);
 		}
@@ -68,6 +94,7 @@ contract Lego is ICallee, DydxFlashloanBase {
 	function _executeBlock(LegoBlock memory _lego, uint _in) internal returns(uint out) {
 		if (_lego.service == Service.uniswap_sushi) {
 			address[] memory path = _decodeUniswap(_lego.data);
+			IERC20(path[0]).approve(_lego.target, _in);
 			uint[] memory outputs = Uniswap(_lego.target).swapExactTokensForTokens(_in, 0, path, address(this), block.timestamp + 10);
 			out = outputs[outputs.length - 1]; 
 		}
@@ -78,6 +105,7 @@ contract Lego is ICallee, DydxFlashloanBase {
 				out = Mooniswap(_lego.target).swap{value: _in}(src, dst, _in, 0, address(0));
 			}
 			else{
+				IERC20(src).approve(_lego.target, _in);
 				out = Mooniswap(_lego.target).swap(src, dst, _in, 0, address(0));
 				if (dst == address(0))
 					weth.deposit{value: out}();
@@ -85,12 +113,15 @@ contract Lego is ICallee, DydxFlashloanBase {
 		}
 		else if (_lego.service == Service.balancer) {
 			(address tokenIn, address tokenOut) = _decodeBalancer(_lego.data);
+			IERC20(tokenIn).approve(_lego.target, _in);
 			(out,) = BPool(_lego.target).swapExactAmountIn(tokenIn, _in, tokenOut, 0, uint(-1));
 		}
 		else if (_lego.service == Service.curve) {
 			(int128 a, int128 b) = _decodeCurve(_lego.data);
-			out = ICurvePoolInterface(_lego.target).get_dy_underlying(a, b, _in);
-			ICurvePoolInterface(_lego.target).exchange_underlying(a, b, _in, 0);
+			IERC20(ICurvePool(_lego.target).underlying_coins(a)).approve(_lego.target, _in);
+			out = ICurvePool(_lego.target).get_dy_underlying(a, b, _in);
+			ICurvePool(_lego.target).exchange_underlying(a, b, _in, out);
+			//out = IERC20(ICurvePool(_lego.target).underlying_coins(b)).balanceOf(address(this));
 		}
 	}
 
@@ -117,7 +148,7 @@ contract Lego is ICallee, DydxFlashloanBase {
 		}
 		else if (_lego.service == Service.curve) {
 			(int128 a, int128 b) = _decodeCurve(_lego.data);
-			out = ICurvePoolInterface(_lego.target).get_dy_underlying(a, b, _in);
+			out = ICurvePool(_lego.target).get_dy_underlying(a, b, _in);
 		}
 		else if (_lego.service == Service.dydx_loan)
 			out = _in;
@@ -134,6 +165,7 @@ contract Lego is ICallee, DydxFlashloanBase {
     }
 
 	//flash loan entry
+	// solo address is 0x1e0447b19bb6ecfdae1e4ae1694b0c3659614e4e
 	function _initiateFlashLoan(address _solo, address _token, uint _amount, LegoBlock[] memory _legos, uint _offset)
         internal {
         ISoloMargin solo = ISoloMargin(_solo);
@@ -173,12 +205,12 @@ contract Lego is ICallee, DydxFlashloanBase {
 		return abi.decode(data, (address, address));
 	}
 
-	function _decodeCurve(bytes memory data) internal pure returns(int128, int128) {
-		return abi.decode(data, (int128, int128));
-	}
-
 	function _decodeBalancer(bytes memory data) internal pure returns(address, address) {
 		return abi.decode(data, (address, address));
+	}
+
+	function _decodeCurve(bytes memory data) internal pure returns(int128, int128) {
+		return abi.decode(data, (int128, int128));
 	}
 
 	function _decodeLoan(bytes memory data) internal pure returns(address, uint) {

@@ -5,8 +5,9 @@ pragma solidity ^0.6.6;
 // BUSDPool = "0x79a8C46DeA5aDa233ABaFFD40F3A0A2B1e5A4F27";
 // sUSDv2Pool = "0xA5407eAE9Ba41422680e2e00537571bcC53efBfD";
 
-interface ICurvePoolInterface {
+interface ICurvePool {
 	function get_dy_underlying(int128 i, int128 j, uint256 dx) external view returns(uint256);
 	function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy) external;
 	function exchange(int128 i, int128 j, uint256 min_dy) external;
+	function underlying_coins(int128 coin) external view returns(address);
 }
