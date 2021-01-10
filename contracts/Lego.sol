@@ -31,6 +31,7 @@ contract Lego is ICallee, DydxFlashloanBase {
 	// flash loan should happen as first block and only once, IO token should be WETH, dont query more than once a specific pool
 	// todo: exit in my weth fork
 	function execBatch(LegoBlock[] memory _legos, uint _amount, uint _maxGasFee, address _to, Owl _fork) public {
+		// RE ENABLE THIS FOR LIVE
 		//require(_simulateBatch(_legos, _amount, _maxGasFee), "No arb");
 		if (address(_fork) == address(0))
 			weth.transferFrom(_to, address(this), _amount);
@@ -69,12 +70,12 @@ contract Lego is ICallee, DydxFlashloanBase {
 			if (_legos[i].service == Service.dydx_loan) {
 				(, uint amount) = _decodeLoan(_legos[i].data);
 				io = amount;
-				sub = amount;
+				sub = amount + 2;
 			}
 			else
 				io = _simulateBlockOutcome(_legos[i], io);
 		}
-		return io > sub + 2 + _maxGasFee;
+		return io > sub + _amount + _maxGasFee;
 	}
 
 	// executes the pipe execution

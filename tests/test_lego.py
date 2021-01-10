@@ -4,6 +4,7 @@ from brownie import Wei
 
 
 def test_loan(lego, me, web3, weth):
+    weth.deposit({'from':me, 'value': 2})
     weth.transfer(lego, 2, {"from": me})
     assert weth.balanceOf(lego) == 2
     loan_lego = get_loan_lego(
@@ -75,6 +76,59 @@ def test_uni_curve(lego, me, web3, weth):
         legos, bal, 0, me, "0x0000000000000000000000000000000000000000", {"from": me}
     )
     assert weth.balanceOf(me) >= (expected * 99999) / 100000
+
+def test_moon_token(lego, me, web3, weth):
+    moon_lego = get_moon_lego(
+        web3,
+        "0x0000000000000000000000000000000000000000",
+        "0x111111111117dc0aa78b770fa6a738034120c302",
+        "0x8B1f66e167653308B3fb15493E7489a4bE58d1e5"
+    )
+    uni_lego = get_uni_lego(
+        web3,
+        [
+            "0x111111111117dc0aa78b770fa6a738034120c302",
+            "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        ],
+        "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    )
+    legos = [moon_lego, uni_lego]
+    weth.deposit({"from": me, "value": Wei("2 ether")})
+    bal = weth.balanceOf(me)
+    weth.approve(lego, Wei("100000000 ether"), {"from": me})
+    expected = lego.testSimulateBatch(legos, bal)
+    print(expected)
+    lego.execBatch(
+        legos, bal, 0, me, "0x0000000000000000000000000000000000000000", {"from": me}
+    )
+    assert weth.balanceOf(me) == expected
+
+def test_moon_token2(lego, me, web3, weth):
+    moon_lego = get_moon_lego(
+        web3,
+        "0x111111111117dc0aa78b770fa6a738034120c302",
+        "0x0000000000000000000000000000000000000000",
+        "0x8B1f66e167653308B3fb15493E7489a4bE58d1e5"
+    )
+    uni_lego = get_uni_lego(
+        web3,
+        [
+            "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "0x111111111117dc0aa78b770fa6a738034120c302"
+        ],
+        "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    )
+    legos = [uni_lego, moon_lego]
+    weth.deposit({"from": me, "value": Wei("2 ether")})
+    bal = weth.balanceOf(me)
+    weth.approve(lego, Wei("100000000 ether"), {"from": me})
+    expected = lego.testSimulateBatch(legos, bal)
+    print(expected)
+    lego.execBatch(
+        legos, bal, 0, me, "0x0000000000000000000000000000000000000000", {"from": me}
+    )
+    assert weth.balanceOf(me) == expected
+    
 
 def test_moon(lego, me, web3, weth):
     moon_lego = get_moon_lego(

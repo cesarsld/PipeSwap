@@ -12,11 +12,23 @@ def minter(accounts):
 
 @pytest.fixture()
 def me(accounts):
-    return accounts.at("0xf521Bb7437bEc77b0B15286dC3f49A87b9946773", force=True)
+    return accounts.at("0x742d35cc6634c0532925a3b844bc454e4438f44e", force=True)
 
 @pytest.fixture()
 def big(accounts):
     return accounts.at("0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e", force=True)
+
+@pytest.fixture()
+def axie(interface):
+    return interface.IAxie("0xf5b0a3efb8e8e4c201e2a935f110eaaf3ffecb8d")
+
+@pytest.fixture()
+def axiearb(OriginArb, me):
+    return OriginArb.deploy({'from': me})
+
+@pytest.fixture()
+def woa(interface, minter):
+    return interface.IERC20("0xEC0A0915A7c3443862B678B0d4721C7aB133FDCf", owner=minter)
 
 @pytest.fixture()
 def receiver(accounts):
@@ -37,7 +49,6 @@ def tusd(interface, minter):
 @pytest.fixture()
 def usdc(interface, minter):
     return interface.IERC20("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", owner=minter)
-
 
 @pytest.fixture()
 def hoot(HootCoin, minter):

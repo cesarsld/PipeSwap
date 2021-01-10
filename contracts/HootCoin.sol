@@ -22,7 +22,7 @@ interface Owl {
 }
 
 contract HootCoin is Owl {
-	string public name     = "Owl Coin";
+	string public name     = "Hoot Coin";
 	string public symbol   = "HOOT";
 	uint8  public decimals = 18;
 
